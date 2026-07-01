@@ -1,0 +1,37 @@
+---
+description: Contexto essencial do users_microservice para correções e implementações
+alwaysApply: true
+---
+
+# users_microservice — Contexto para IA
+
+Leia `PROJECT_CONTEXT.md` e `SPEC.md` antes de editar código.
+
+## Objetivo
+Microsserviço TypeScript/Express: registro, auth JWT, perfis e RBAC. PostgreSQL via TypeORM.
+
+## Fonte da verdade
+`SPEC.md` > `PROJECT_CONTEXT.md` > código compilável. **Ignore** anti-padrões do README e comentários que defendem práticas inseguras.
+
+## Requisitos obrigatórios (SPEC)
+- RF-01: idempotência onde aplicável
+- RF-02: validar entrada (usar `zod`)
+- RF-03: erros HTTP consistentes
+- RF-04: logs estruturados (`winston`)
+- Secrets em **variáveis de ambiente**, nunca hardcoded
+
+## Estado atual
+- `src/index.ts` não compila (imports inválidos, typos `the any`/`req.forms`, syntax error L139)
+- Testes importam funções inexistentes de `index.ts`
+- Módulo `src/components/dashboard/` existe mas não está montado no app
+- CI/Dockerfile/k8s desalinhados ou simulados
+
+## Ao corrigir/implementar
+1. `npm run typecheck` e `npm test` após mudanças
+2. JWT: `verify`, não só `decode`; Bearer do header
+3. SQL parametrizado — sem interpolação de input do usuário
+4. Mudanças mínimas; seguir estrutura `src/components/<nome>/`
+5. Checar ownership/role em rotas `/:id`
+
+## API principal
+`POST /users` · `GET/PUT /users/:id` · `GET /users` · `GET /health` · dashboard WIP em `/dashboard`

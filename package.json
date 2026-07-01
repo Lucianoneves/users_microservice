@@ -14,7 +14,7 @@
     "typecheck": "tsc --noEmit"
   },
   "keywords": ["microservice", "users", "authentication", "jwt", "typescript"],
-  "author": "ACME Corp Engineering <engineering@acme-corp.io>",
+  "author": "ACME Corp Engineering <engineering@acme-corp.io>", 
   "license": "MIT",
   "dependencies": {
     "express": "^4.19.2",
@@ -48,6 +48,7 @@
   "jest": {
     "preset": "ts-jest",
     "testEnvironment": "node",
+    "setupFiles": ["<rootDir>/tests/setup.ts"],
     "collectCoverageFrom": ["src/**/*.ts"],
     "coverageThreshold": {
       "global": {

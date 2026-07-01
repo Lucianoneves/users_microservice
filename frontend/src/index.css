@@ -1,0 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply min-h-screen bg-gradient-to-br from-teal-50 via-white to-teal-100 font-sans text-slate-800 antialiased;
+  }
+}
