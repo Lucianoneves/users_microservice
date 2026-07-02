@@ -1,12 +1,12 @@
 import { useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
   registerFormSchema,
   type RegisterFormErrors,
   type RegisterFormInput,
 } from '../schemas/register.schema';
-import { ApiError, registerUser, saveAuthToken } from '../services/authApi';
+import { ApiError, registerUser, saveAuthSession } from '../services/authApi';
 import { AuthCard } from './AuthCard';
 import { FormField } from './FormField';
 
@@ -19,6 +19,7 @@ const initialValues: RegisterFormInput = {
 };
 
 export function RegisterForm() {
+  const navigate = useNavigate();
   const [values, setValues] = useState<RegisterFormInput>(initialValues);
   const [errors, setErrors] = useState<RegisterFormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -53,9 +54,10 @@ export function RegisterForm() {
     try {
       const { username, email, password, role } = result.data;
       const auth = await registerUser({ username, email, password, role });
-      saveAuthToken(auth.token);
+      saveAuthSession(auth);
       toast.success(`Conta criada! ID: ${auth.id}`);
       setValues(initialValues);
+      navigate('/perfil');
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 409) {

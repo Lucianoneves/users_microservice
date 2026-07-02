@@ -17,7 +17,7 @@ import {
 } from '../../schemas/user.schema';
 import { UsersService } from './users.service';
 
-const registrationLimiter = rateLimit({
+const registrationLimiter = rateLimit({ // limite de requisições para criar um novo usuário
   windowMs: 15 * 60 * 1000,
   max: 20,
   standardHeaders: true,
@@ -27,7 +27,7 @@ const registrationLimiter = rateLimit({
 export function createUsersRouter(service?: UsersService): Router {
   const router = Router();
 
-  const getService = (): UsersService => {
+  const getService = (): UsersService => { // função para obter o serviço de usuários
     if (service) return service;
     if (!AppDataSource.isInitialized) {
       throw new Error('Database not initialized');
@@ -35,7 +35,7 @@ export function createUsersRouter(service?: UsersService): Router {
     return new UsersService(AppDataSource.getRepository(UserEntity));
   };
 
-  router.post(
+  router.post( // rota para fazer login
     '/login',
     validate(loginUserSchema),
     async (req: Request, res: Response, next: NextFunction) => {
@@ -52,7 +52,7 @@ export function createUsersRouter(service?: UsersService): Router {
     },
   );
 
-  router.post(
+  router.post( // rota para criar um novo usuário
     '/',
     registrationLimiter,
     validate(createUserSchema),
@@ -66,7 +66,7 @@ export function createUsersRouter(service?: UsersService): Router {
     },
   );
 
-  router.get(
+  router.get( // rota para listar todos os usuários
     '/',
     authenticate,
     requireRole('admin'),
@@ -81,7 +81,7 @@ export function createUsersRouter(service?: UsersService): Router {
     },
   );
 
-  router.get(
+  router.get( // rota para buscar um usuário por ID
     '/:id',
     authenticate,
     validate(userIdParamSchema, 'params'),
@@ -100,7 +100,7 @@ export function createUsersRouter(service?: UsersService): Router {
     },
   );
 
-  router.put(
+  router.put( // rota para atualizar um usuário
     '/:id',
     authenticate,
     validate(userIdParamSchema, 'params'),

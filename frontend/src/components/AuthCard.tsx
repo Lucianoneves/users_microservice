@@ -5,11 +5,12 @@ type AuthCardProps = {
   subtitle?: string;
   children: ReactNode;
   footer?: ReactNode;
+  className?: string;
 };
 
-export function AuthCard({ title, subtitle, children, footer }: AuthCardProps) {
+export function AuthCard({ title, subtitle, children, footer, className }: AuthCardProps) {
   return (
-    <div className="w-full max-w-md">
+    <div className={`w-full ${className ?? 'max-w-md'}`}>
       <div className="overflow-hidden rounded-2xl border border-teal-100 bg-white shadow-card">
         <div className="bg-gradient-to-r from-teal-600 to-teal-500 px-8 py-6">
           <div className="flex items-center gap-3">

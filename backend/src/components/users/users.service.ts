@@ -20,7 +20,7 @@ function toPublicUser(user: UserEntity): PublicUser {
 export class UsersService {
   constructor(private readonly repo: Repository<UserEntity>) {}
 
-  async login(email: string, password: string): Promise<CreateUserResult | null> {
+  async login(email: string, password: string): Promise<CreateUserResult | null> { // função para fazer login
     const user = await this.repo.findOne({ where: { email } });
     if (!user) return null;
 

@@ -1,12 +1,12 @@
 import { useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
   loginFormSchema,
   type LoginFormErrors,
   type LoginFormInput,
 } from '../schemas/login.schema';
-import { ApiError, loginUser, saveAuthToken } from '../services/authApi';
+import { ApiError, loginUser, saveAuthSession } from '../services/authApi';
 import { AuthCard } from './AuthCard';
 import { FormField } from './FormField';
 
@@ -16,6 +16,7 @@ const initialValues: LoginFormInput = {
 };
 
 export function LoginForm() {
+  const navigate = useNavigate();
   const [values, setValues] = useState<LoginFormInput>(initialValues);
   const [errors, setErrors] = useState<LoginFormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -49,8 +50,9 @@ export function LoginForm() {
 
     try {
       const auth = await loginUser(result.data);
-      saveAuthToken(auth.token);
+      saveAuthSession(auth);
       toast.success(`Login realizado! Bem-vindo(a), usuário #${auth.id}`);
+      navigate('/perfil');
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 401) {
