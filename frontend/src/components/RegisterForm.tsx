@@ -1,10 +1,12 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import {
   registerFormSchema,
   type RegisterFormErrors,
   type RegisterFormInput,
 } from '../schemas/register.schema';
+import { ApiError, registerUser, saveAuthToken } from '../services/authApi';
 import { AuthCard } from './AuthCard';
 import { FormField } from './FormField';
 
@@ -19,17 +21,16 @@ const initialValues: RegisterFormInput = {
 export function RegisterForm() {
   const [values, setValues] = useState<RegisterFormInput>(initialValues);
   const [errors, setErrors] = useState<RegisterFormErrors>({});
-  const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (field: keyof RegisterFormInput, value: string) => {
     setValues((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
-    if (submitted) setSubmitted(false);
   };
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
     const result = registerFormSchema.safeParse(values);
@@ -42,29 +43,41 @@ export function RegisterForm() {
         }
       }
       setErrors(fieldErrors);
+      toast.error('Verifique os campos do formulário.');
       return;
     }
 
     setErrors({});
-    setSubmitted(true);
+    setIsSubmitting(true);
+
+    try {
+      const { username, email, password, role } = result.data;
+      const auth = await registerUser({ username, email, password, role });
+      saveAuthToken(auth.token);
+      toast.success(`Conta criada! ID: ${auth.id}`);
+      setValues(initialValues);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.status === 409) {
+          toast.error('E-mail ou nome de usuário já cadastrado.');
+        } else {
+          toast.error(err.message);
+        }
+      } else {
+        toast.error('Não foi possível conectar ao servidor. Verifique se o backend está rodando.');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <AuthCard
       title="Criar conta"
       subtitle="ACME Corp — Users Service"
-      footer="Validação local com Zod — sem envio ao servidor"
+      footer="Cadastro integrado com a API em http://localhost:3000"
     >
       <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-        {submitted && (
-          <div
-            className="rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-800"
-            role="status"
-          >
-            Formulário válido! A integração com o backend será feita em seguida.
-          </div>
-        )}
-
         <FormField
           id="username"
           label="Nome de usuário"
@@ -133,9 +146,10 @@ export function RegisterForm() {
 
         <button
           type="submit"
-          className="w-full rounded-xl bg-teal-600 px-4 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:ring-offset-2 active:bg-teal-800"
+          disabled={isSubmitting}
+          className="w-full rounded-xl bg-teal-600 px-4 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:ring-offset-2 active:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Cadastrar
+          {isSubmitting ? 'Cadastrando...' : 'Cadastrar'}
         </button>
 
         <p className="text-center text-xs text-slate-500">

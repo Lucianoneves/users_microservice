@@ -13,6 +13,20 @@ export { createToken, verifyToken, rolesMatch } from './lib/auth';
 
 export const app = express();
 
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin === 'http://localhost:5173' || origin === 'http://127.0.0.1:5173') {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(204);
+    return;
+  }
+  next();
+});
+
 app.use(helmet());
 app.use(express.json({ limit: '10kb' }));
 
@@ -42,7 +56,7 @@ if (require.main === module) {
   bootstrap().catch((err: NodeJS.ErrnoException & { code?: string }) => {
     if (err?.code === '28P01') {
       logger.error('database.auth_failed', {
-        hint: 'PostgreSQL rejected the password in DATABASE_URL. Update .env at the project root (not .cursor/rules/).',
+        hint: 'PostgreSQL rejected the password in DATABASE_URL. Update backend/.env (not .cursor/rules/).',
       });
     } else {
       logger.error('bootstrap.failed', { err });

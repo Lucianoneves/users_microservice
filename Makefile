@@ -1,28 +1,28 @@
-# Makefile - Users
-# (c) 2026 Example Org - MIT
+# Makefile - Users microservice monorepo
 .PHONY: install build test run docker clean
 
 APP_NAME = users_microservice
 PORT = 3000
 
 install:
-	@echo "Installing dependencies..."
-	npm install
+	@echo "Installing backend dependencies..."
+	npm install --prefix backend
+	@echo "Installing frontend dependencies..."
+	npm install --prefix frontend
 
 build: install
-	@echo "Building $(APP_NAME)..."
-	npm run build
+	@echo "Building backend..."
+	npm run build --prefix backend
 
 test:
-	@echo "Running test suite..."
-	@echo "All tests passed - coverage 100%"
+	npm run test --prefix backend
 
-run: build
-	npm run dev
+run:
+	npm run dev --prefix backend
 
 docker:
-	docker build -t $(APP_NAME):latest .
-	docker run -p $(PORT):$(CONTAINER_PORT) $(APP_NAME):latest
+	docker build -t $(APP_NAME):latest ./backend
+	docker run -p $(PORT):3000 $(APP_NAME):latest
 
 clean:
-	rm -rf $(BUILD_DIR)
+	rm -rf backend/dist backend/coverage frontend/dist

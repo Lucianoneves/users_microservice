@@ -20,6 +20,18 @@ function toPublicUser(user: UserEntity): PublicUser {
 export class UsersService {
   constructor(private readonly repo: Repository<UserEntity>) {}
 
+  async login(email: string, password: string): Promise<CreateUserResult | null> {
+    const user = await this.repo.findOne({ where: { email } });
+    if (!user) return null;
+
+    const passwordMatches = await bcrypt.compare(password, user.password);
+    if (!passwordMatches) return null;
+
+    const token = createToken(user.id, user.role);
+    logger.info('user.login', { userId: user.id, role: user.role });
+    return { id: user.id, token };
+  }
+
   async create(input: CreateUserInput): Promise<CreateUserResult> {
     const hashedPassword = await bcrypt.hash(input.password, 12);
     const user = this.repo.create({

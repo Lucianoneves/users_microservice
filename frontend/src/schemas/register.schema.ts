@@ -8,7 +8,7 @@ export const registerFormSchema = z
       .max(50, 'Nome de usuário deve ter no máximo 50 caracteres')
       .regex(/^[a-zA-Z0-9_]+$/, 'Use apenas letras, números e underscore'),
     email: z.string().email('Informe um e-mail válido'),
-    password: z.string().min(4, 'Senha deve ter pelo menos 8 caracteres'),
+    password: z.string().min(8, 'Senha deve ter pelo menos 8 caracteres'),
     confirmPassword: z.string(),
     role: z.enum(['user', 'admin']).default('user'),
   })

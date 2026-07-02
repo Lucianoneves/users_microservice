@@ -10,6 +10,7 @@ import {
 import { validate } from '../../middleware/validate';
 import {
   createUserSchema,
+  loginUserSchema,
   updateUserSchema,
   userIdParamSchema,
   listUsersQuerySchema,
@@ -33,6 +34,23 @@ export function createUsersRouter(service?: UsersService): Router {
     }
     return new UsersService(AppDataSource.getRepository(UserEntity));
   };
+
+  router.post(
+    '/login',
+    validate(loginUserSchema),
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const result = await getService().login(req.body.email, req.body.password);
+        if (!result) {
+          res.status(401).json({ error: 'Invalid credentials' });
+          return;
+        }
+        res.json(result);
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
 
   router.post(
     '/',

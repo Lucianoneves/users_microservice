@@ -20,17 +20,21 @@ Microsserviço TypeScript/Express: registro, auth JWT, perfis e RBAC. PostgreSQL
 - RF-04: logs estruturados (`winston`)
 - Secrets em **variáveis de ambiente**, nunca hardcoded
 
+## Estrutura do repositório
+- `backend/` — API Express (`backend/src/`), testes, Dockerfile, k8s
+- `frontend/` — UI React (login/cadastro)
+- Raiz — `SPEC.md`, `PROJECT_CONTEXT.md`, scripts `dev:backend` / `dev:frontend`
+
 ## Estado atual
-- `src/index.ts` não compila (imports inválidos, typos `the any`/`req.forms`, syntax error L139)
-- Testes importam funções inexistentes de `index.ts`
-- Módulo `src/components/dashboard/` existe mas não está montado no app
-- CI/Dockerfile/k8s desalinhados ou simulados
+- Backend em `backend/src/index.ts` — entry point Express
+- Módulo `backend/src/components/dashboard/` montado em `/dashboard`
+- CI/Dockerfile/k8s podem precisar alinhamento contínuo
 
 ## Ao corrigir/implementar
-1. `npm run typecheck` e `npm test` após mudanças
+1. `npm run typecheck` e `npm test` na raiz (ou em `backend/`) após mudanças
 2. JWT: `verify`, não só `decode`; Bearer do header
 3. SQL parametrizado — sem interpolação de input do usuário
-4. Mudanças mínimas; seguir estrutura `src/components/<nome>/`
+4. Mudanças mínimas; seguir estrutura `backend/src/components/<nome>/`
 5. Checar ownership/role em rotas `/:id`
 
 ## API principal
