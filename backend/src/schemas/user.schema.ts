@@ -3,13 +3,13 @@ import { z } from 'zod';
 export const createUserSchema = z.object({
   username: z.string().min(3).max(50),
   email: z.string().email(),
-  password: z.string().min(8),
+  password: z.string().min(4),
   role: z.enum(['user', 'admin']).default('user'),
 });
 
 export const loginUserSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(1),
+  password: z.string().min(4),
 });
 
 export const updateUserSchema = z
