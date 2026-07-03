@@ -2,28 +2,26 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
-  registerFormSchema,
-  type RegisterFormErrors,
-  type RegisterFormInput,
-} from '../schemas/register.schema';
-import { ApiError, registerUser, saveAuthSession } from '../services/authApi';
+  loginFormSchema,
+  type LoginFormErrors,
+  type LoginFormInput,
+} from '../schemas/login.schema';
+import { ApiError, reactivateUser, saveAuthSession } from '../services/authApi';
 import { AuthCard } from './AuthCard';
 import { FormField } from './FormField';
 
-const initialValues: RegisterFormInput = {
-  username: '',
+const initialValues: LoginFormInput = {
   email: '',
   password: '',
-  confirmPassword: '',
 };
 
-export function RegisterForm() {
+export function ReactivateForm() {
   const navigate = useNavigate();
-  const [values, setValues] = useState<RegisterFormInput>(initialValues);
-  const [errors, setErrors] = useState<RegisterFormErrors>({});
+  const [values, setValues] = useState<LoginFormInput>(initialValues);
+  const [errors, setErrors] = useState<LoginFormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleChange = (field: keyof RegisterFormInput, value: string) => {
+  const handleChange = (field: keyof LoginFormInput, value: string) => {
     setValues((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
@@ -33,11 +31,11 @@ export function RegisterForm() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    const result = registerFormSchema.safeParse(values);
+    const result = loginFormSchema.safeParse(values);
     if (!result.success) {
-      const fieldErrors: RegisterFormErrors = {};
+      const fieldErrors: LoginFormErrors = {};
       for (const issue of result.error.issues) {
-        const field = issue.path[0] as keyof RegisterFormInput;
+        const field = issue.path[0] as keyof LoginFormInput;
         if (!fieldErrors[field]) {
           fieldErrors[field] = issue.message;
         }
@@ -51,16 +49,14 @@ export function RegisterForm() {
     setIsSubmitting(true);
 
     try {
-      const { username, email, password } = result.data;
-      const auth = await registerUser({ username, email, password });
+      const auth = await reactivateUser(result.data);
       saveAuthSession(auth);
-      toast.success(`Conta criada! ID: ${auth.id}`);
-      setValues(initialValues);
+      toast.success('Conta reativada com sucesso!');
       navigate('/perfil');
     } catch (err) {
       if (err instanceof ApiError) {
-        if (err.status === 409) {
-          toast.error('E-mail ou nome de usuário já cadastrado.');
+        if (err.status === 401) {
+          toast.error('E-mail ou senha incorretos, ou a conta não está desativada.');
         } else {
           toast.error(err.message);
         }
@@ -74,21 +70,20 @@ export function RegisterForm() {
 
   return (
     <AuthCard
-      title="Criar conta"
-      subtitle="ACME Corp — Users Service"
-      footer="Cadastro integrado com a API em http://localhost:3000"
+      title="Reativar conta"
+      subtitle="Use o mesmo e-mail e senha da conta excluída"
+      footer="POST /users/reactivate — restaura contas com soft delete"
     >
-      <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-        <FormField
-          id="username"
-          label="Nome de usuário"
-          value={values.username}
-          error={errors.username}
-          placeholder="ex: maria_silva"
-          autoComplete="username"
-          onChange={(value) => handleChange('username', value)}
-        />
+      <p className="mb-4 text-sm text-slate-600">
+        Se você excluiu sua conta, pode reativá-la aqui. Também é possível se cadastrar novamente
+        com o mesmo e-mail em{' '}
+        <Link to="/cadastro" className="font-medium text-teal-600 hover:underline">
+          Criar conta
+        </Link>
+        .
+      </p>
 
+      <form onSubmit={handleSubmit} className="space-y-5" noValidate>
         <FormField
           id="email"
           label="E-mail"
@@ -106,20 +101,9 @@ export function RegisterForm() {
           type="password"
           value={values.password}
           error={errors.password}
-          placeholder="Mínimo 8 caracteres"
-          autoComplete="new-password"
+          placeholder="Sua senha anterior"
+          autoComplete="current-password"
           onChange={(value) => handleChange('password', value)}
-        />
-
-        <FormField
-          id="confirmPassword"
-          label="Confirmar senha"
-          type="password"
-          value={values.confirmPassword}
-          error={errors.confirmPassword}
-          placeholder="Repita a senha"
-          autoComplete="new-password"
-          onChange={(value) => handleChange('confirmPassword', value)}
         />
 
         <button
@@ -127,27 +111,15 @@ export function RegisterForm() {
           disabled={isSubmitting}
           className="w-full rounded-xl bg-teal-600 px-4 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:ring-offset-2 active:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isSubmitting ? 'Cadastrando...' : 'Cadastrar'}
+          {isSubmitting ? 'Reativando...' : 'Reativar conta'}
         </button>
 
         <p className="text-center text-xs text-slate-500">
-          Já tem uma conta excluída?{' '}
-          <Link
-            to="/reativar"
-            className="font-medium text-teal-600 transition hover:text-teal-700 hover:underline"
-          >
-            Reativar conta
-          </Link>
-          {' '}ou cadastre-se novamente com o mesmo e-mail.
-        </p>
-
-        <p className="text-center text-xs text-slate-500">
-          Já tem uma conta?{' '}
           <Link
             to="/login"
             className="font-medium text-teal-600 transition hover:text-teal-700 hover:underline"
           >
-            Entrar
+            Voltar ao login
           </Link>
         </p>
       </form>

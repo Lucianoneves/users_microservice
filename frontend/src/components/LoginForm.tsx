@@ -106,6 +106,25 @@ export function LoginForm() {
         </button>
 
         <p className="text-center text-xs text-slate-500">
+          <Link
+            to="/recuperar-senha"
+            className="font-medium text-teal-600 transition hover:text-teal-700 hover:underline"
+          >
+            Esqueci minha senha
+          </Link>
+        </p>
+
+        <p className="text-center text-xs text-slate-500">
+          Excluiu sua conta?{' '}
+          <Link
+            to="/reativar"
+            className="font-medium text-teal-600 transition hover:text-teal-700 hover:underline"
+          >
+            Reativar conta
+          </Link>
+        </p>
+
+        <p className="text-center text-xs text-slate-500">
           Não tem uma conta?{' '}
           <Link
             to="/cadastro"

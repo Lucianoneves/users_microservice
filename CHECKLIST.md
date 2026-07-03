@@ -2,15 +2,15 @@
 
 > Controle de responsabilidades e progresso do microsserviço ACME Corp.  
 > **Fonte da verdade:** `SPEC.md` > `PROJECT_CONTEXT.md` > código compilável.  
-> **Última revisão automática:** 2026-07-02 (pós-correção `findById` + Winston)
+> **Última revisão automática:** 2026-07-03 (soft delete completo + política de único admin)
 
 ## Resumo executivo (verificação automática)
 
 | Verificação | Resultado | Detalhe |
 |---|---|---|
-| `npm test` (backend) | ✅ Passou | 11 testes, 2 suites |
-| `npm run typecheck` (backend) | ✅ Passou | Sem erros após restaurar `findById` |
-| `npm run test:coverage` (backend) | ❌ Abaixo do threshold | Lines **9,28%** · Branches **7,31%** · Functions **12,12%** (meta: 90/85/90) |
+| `npm test` (backend) | ✅ Passou | 30 testes, 5 suites |
+| `npm run typecheck` (backend) | ✅ Passou | Sem erros |
+| `npm run test:coverage` (backend) | ❌ Abaixo do threshold | Cobertura ainda abaixo da meta 90/85/90 |
 | `npm run build` (frontend) | ✅ Passou | Vite build OK |
 | Banco `microservice` | ✅ Confirmado | Tabela `users` em `public` |
 
@@ -19,11 +19,11 @@
 | Área | Concluído | Parcial | Pendente |
 |---|---:|---:|---:|
 | Critérios de aceite (§1) | 5 | 1 | 0 |
-| RF-01 a RF-04 (§2) | 16 | 2 | 1 |
+| RF-01 a RF-04 (§2) | 18 | 2 | 1 |
 | Não funcionais (§3) | 6 | 1 | 2 |
-| API REST (§5) | 7 | 1 | 1 |
-| Frontend (§7) | 9 | 0 | 0 |
-| Testes / QA (§8) | 6 | 0 | 5 |
+| API REST (§5) | 10 | 1 | 0 |
+| Frontend (§7) | 13 | 0 | 1 |
+| Testes / QA (§8) | 7 | 1 | 4 |
 | Infra (§9) | 2 | 1 | 4 |
 
 ---
@@ -48,7 +48,7 @@
 | `[x]` | `npm install` conclui sem erros (raiz, `backend/`, `frontend/`) | INF | Monorepo com scripts `dev:backend` / `dev:frontend` |
 | `[x]` | `npm run dev` executa o backend (`backend/`, porta 3000) | BE | `ts-node-dev` + Express |
 | `[x]` | `npm run dev` executa o frontend (`frontend/`, porta 5173) | FE | Vite + React |
-| `[x]` | `npm test` passa localmente | QA | 11/11 testes (2026-07-02) |
+| `[x]` | `npm test` passa localmente | QA | 30/30 testes (2026-07-03) |
 | `[x]` | `npm run typecheck` passa sem erros | QA | OK em 2026-07-02 |
 | `[~]` | CI verde com testes reais | INF | `.github/workflows/ci.yml` ainda usa `echo` simulado |
 | `[~]` | Cobertura conforme SPEC (100%) / threshold Jest (85–90%) | QA | **9,28%** lines — muito abaixo da meta |
@@ -62,6 +62,7 @@
 | Status | Item | Resp. | Notas |
 |---|---|---|---|
 | `[~]` | `PUT /users/:id` seguro para retry | BE | Atualização parcial existe; sem chave de idempotência |
+| `[~]` | `DELETE /users/:id` idempotente (retry) | BE | Segunda chamada retorna 404 se já excluído |
 | `[ ]` | Política documentada para operações de escrita | BE | — |
 
 ### RF-02 — Validação de entrada externa (Zod)
@@ -94,7 +95,8 @@
 | `[x]` | Log em login (`user.login`) | BE | `users.service.ts` |
 | `[x]` | Log em atualização (`user.updated`) | BE | `users.service.ts` |
 | `[x]` | Log de bootstrap (DB + servidor) | BE | `database.connected`, `server.started` |
-| `[ ]` | Logs com contexto de rota/requestId em todas as operações | BE | — |
+| `[x]` | Log em exclusão (`user.deleted`) | BE | Winston em `softDelete()` |
+| `[x]` | Log em reativação/restauração | BE | `user.reactivated`, `user.restored`, `user.login_blocked_deleted` |
 
 ---
 
@@ -171,8 +173,11 @@
 | `[x]` | `GET` | `/users/:id` | Sim | BE | Perfil (self ou admin) via `findById` |
 | `[x]` | `PUT` | `/users/:id` | Sim | BE | Atualização parcial (self ou admin) |
 | `[x]` | `GET` | `/users` | Sim (admin) | BE | Listagem com `?role=` e `?search=` |
+| `[x]` | `DELETE` | `/users/:id` | Sim | BE | Soft delete — self ou admin |
+| `[x]` | `POST` | `/users/reactivate` | Não | BE | Reativação com e-mail + senha |
+| `[x]` | `GET` | `/users/deleted` | Sim (admin) | BE | Lista contas soft-deleted |
+| `[x]` | `POST` | `/users/:id/restore` | Sim (admin) | BE | Restaura conta excluída |
 | `[~]` | `GET` | `/dashboard` | Não | BE | Rota existe; `getSummary()` retorna stub |
-| `[ ]` | `DELETE` | `/users/:id` | Sim | BE | Soft delete planejado, não implementado |
 
 ### Segurança nas rotas
 
@@ -184,6 +189,11 @@
 | `[x]` | Listagem restrita a `admin` | BE | RBAC |
 | `[x]` | Campos públicos sem hash de senha | BE | `PUBLIC_FIELDS` no service |
 | `[x]` | CORS para frontend local (`localhost:5173`) | BE | `backend/src/index.ts` |
+| `[x]` | Token JWT invalidado após soft delete | BE | `authenticate` valida usuário ativo no banco |
+| `[x]` | Login bloqueado para contas excluídas | BE | `UsersService.login()` + log |
+| `[x]` | Cadastro sempre como `user` (sem `role` na API pública) | BE | `createUserSchema` sem campo `role` |
+| `[x]` | Apenas um administrador ativo | BE | `ForbiddenError` em promoção/rebaixamento |
+| `[x]` | Usuário comum não altera `role` via `PUT` | BE | Rota remove `role` do body se não for admin |
 
 ---
 
@@ -191,13 +201,15 @@
 
 | Status | Item | Resp. | Notas |
 |---|---|---|---|
-| `[x]` | Entidade `UserEntity` (`users`) | BE | `id`, `username`, `email`, `password`, `role` |
+| `[x]` | Entidade `UserEntity` (`users`) | BE | `id`, `username`, `email`, `password`, `role`, timestamps, `deletedAt` |
 | `[x]` | `data-source.ts` configurado | BE | `DATABASE_URL` + `synchronize` fora de produção |
 | `[x]` | Tabela `users` no banco `microservice` | BE/INF | Schema `public` — confirmado em sessão anterior |
-| `[~]` | Migrations TypeORM versionadas no repositório | BE | Tabela `migrations` no DB; **arquivos `.ts` ausentes no repo** |
-| `[~]` | `synchronize` apenas fora de produção | BE | `env.NODE_ENV !== 'production'` |
-| `[~]` | `createdAt` / `updatedAt` / `deletedAt` | BE | Podem existir no DB (migration antiga); **entidade atual sem esses campos** |
-| `[ ]` | Soft delete funcional (`DELETE` + `@DeleteDateColumn`) | BE | Planejado no `PROJECT_CONTEXT.md` |
+| `[x]` | Migrations TypeORM versionadas no repositório | BE | `1730500000000-AddSoftDeleteAndTimestamps.ts` |
+| `[~]` | `synchronize` apenas fora de produção | BE | Dev: sync; prod: usar `npm run migration:run` |
+| `[x]` | `createdAt` / `updatedAt` / `deletedAt` na entidade | BE | `@CreateDateColumn`, `@UpdateDateColumn`, `@DeleteDateColumn` |
+| `[x]` | Soft delete funcional (`DELETE` + `@DeleteDateColumn`) | BE | `UsersService.softDelete()` + log `user.deleted` |
+| `[x]` | Reativação por cadastro (mesmo e-mail) | BE | `create()` reativa conta excluída em vez de duplicar |
+| `[x]` | Política de reutilização de e-mail documentada no fluxo | BE | Reativar via cadastro, `/reactivate` ou restore admin |
 
 ---
 
@@ -211,8 +223,14 @@
 | `[x]` | Integração `POST /users/login` | FE | `authApi.ts` → testado via API |
 | `[x]` | Token salvo em `localStorage` | FE | Chave `auth_token` |
 | `[x]` | Tela de perfil (`GET /users/:id`) | FE | `/perfil` — `PerfilForm.tsx` + Bearer token |
-| `[x]` | Tela admin (gestão de perfis de usuários) | FE | `/admin` — listagem, filtros e edição (role `admin`) |
+| `[x]` | Tela admin (gestão de perfis de usuários) | FE | `/admin` — listar, editar e excluir (soft delete) |
 | `[x]` | Proteção de rotas admin no React Router | FE | `AdminRoute` — token + role `admin` |
+| `[x]` | Exclusão de conta (soft delete) no perfil e admin | FE | `DELETE /users/:id` via `usersApi.deleteUser()` |
+| `[x]` | Tela de reativação (`/reativar`) | FE | `ReactivateForm.tsx` — `POST /users/reactivate` |
+| `[x]` | Admin: listar e restaurar contas excluídas | FE | `GET /users/deleted` + `POST /users/:id/restore` |
+| `[x]` | Cadastro sem opção de administrador | FE | `RegisterForm` — sempre usuário comum |
+| `[x]` | `/admin` bloqueado para não-admins com feedback | FE | `AdminRoute` redireciona + toast de acesso negado |
+| `[x]` | Perfil admin somente leitura no painel | FE | Role não editável em `AdminUsersPanel` |
 | `[ ]` | `VITE_API_URL` documentada (`.env.example`) | FE/INF | Default: `http://localhost:3000` |
 
 ---
@@ -225,21 +243,21 @@
 | `[x]` | Testes RBAC (`rolesMatch`) | QA | — |
 | `[x]` | Testes core (utilitários) | QA | `backend/tests/core.test.ts` |
 | `[x]` | `npm run typecheck` sem erros | QA | OK em 2026-07-02 |
-| `[x]` | `npm run build` no frontend | QA | OK em 2026-07-02 |
+| `[x]` | `npm run build` no frontend | QA | OK em 2026-07-03 |
+| `[~]` | Testes de `UsersService` com DB mock | QA | `users.service.test.ts` — soft delete + único admin |
 | `[ ]` | Testes de integração HTTP (supertest) | QA | Dependência instalada, não usada |
-| `[ ]` | Testes de `UsersService` com DB mock | QA | — |
 | `[ ]` | Testes de segurança (JWT inválido, IDOR, SQLi) | QA | — |
 | `[ ]` | Testes frontend (Jest + RTL) | QA | Não configurado |
 | `[ ]` | ESLint configurado e rodando | QA | Script existe; config ausente |
 | `[!]` | `npm run test:coverage` atinge threshold | QA | **9,28%** lines vs meta **90%** |
 
-### Cobertura atual (2026-07-02)
+### Cobertura atual (2026-07-03)
 
 | Arquivo / área | Lines | Status |
 |---|---|---|
-| `src/lib/auth.ts` | 91,66% | Parcialmente coberto |
-| `src/config/env.ts` | 85,71% | Parcialmente coberto |
-| `src/components/users/*` | 0% | Sem testes |
+| `src/lib/auth.ts` | ~92% | Parcialmente coberto |
+| `src/config/env.ts` | ~86% | Parcialmente coberto |
+| `src/components/users/users.service.ts` | Parcial | Testes unitários com mock |
 | `src/middleware/*` | 0% | Sem testes |
 | `src/index.ts` | 0% | Sem testes |
 
@@ -288,12 +306,12 @@ Conforme `PROJECT_CONTEXT.md` e regras do projeto:
 
 ## 12. Próximos passos sugeridos (prioridade)
 
-1. **[QA]** Testes de integração com supertest (`POST /users`, `POST /users/login`, `GET /users`, `PUT /users/:id`)
-2. **[BE]** Restaurar arquivos de migration TypeORM no repositório
-3. **[INF]** CI real em `.github/workflows/ci.yml`
-4. **[BE]** `DELETE /users/:id` com soft delete
-5. **[BE]** Agregações reais no `DashboardService`
-6. **[INF]** Corrigir manifests K8s (portas, secrets, typos)
+1. **[INF]** CI real em `.github/workflows/ci.yml`
+2. **[QA]** Testes de integração com supertest (incl. soft delete e RBAC)
+3. **[BE]** Agregações reais no `DashboardService`
+4. **[INF]** Corrigir manifests K8s (portas, secrets, typos)
+5. **[BE/INF]** Seed ou script para criar o único administrador inicial
+6. **[INF]** `.env.example` com `VITE_API_URL` e variáveis do backend
 
 ---
 
@@ -325,4 +343,6 @@ npm run typecheck
 | 2026-07-02 | Atualização automática: métricas de teste/cobertura/typecheck; alertas `findById` e `console.log` |
 | 2026-07-02 | Correção: `findById` restaurado; `user.created` com Winston; typecheck verde |
 | 2026-07-02 | Frontend: tela `/perfil`, `ProtectedRoute`, `fetchUserProfile` com Bearer token |
-| 2026-07-02 | Frontend: painel `/admin` — gestão de perfis (listar, filtrar, editar) com RBAC |
+| 2026-07-03 | Soft delete: `DELETE /users/:id`, `@DeleteDateColumn`, migration, UI perfil/admin |
+| 2026-07-03 | Reativação: `POST /users/reactivate`, `GET /users/deleted`, `POST /users/:id/restore`, tela `/reativar` |
+| 2026-07-03 | Política único admin: cadastro só `user`, RBAC reforçado, `AdminRoute` com toast, 30 testes |

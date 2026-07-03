@@ -46,7 +46,6 @@ export async function registerUser(input: {
   username: string;
   email: string;
   password: string;
-  role: 'user' | 'admin';
 }): Promise<AuthResponse> {
   return request<AuthResponse>('/users', {
     method: 'POST',
@@ -59,6 +58,33 @@ export async function loginUser(input: {
   password: string;
 }): Promise<AuthResponse> {
   return request<AuthResponse>('/users/login', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function reactivateUser(input: {
+  email: string;
+  password: string;
+}): Promise<AuthResponse> {
+  return request<AuthResponse>('/users/reactivate', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function requestPasswordReset(email: string): Promise<{ message: string }> {
+  return request<{ message: string }>('/users/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function resetPassword(input: {
+  token: string;
+  password: string;
+}): Promise<{ message: string }> {
+  return request<{ message: string }>('/users/reset-password', {
     method: 'POST',
     body: JSON.stringify(input),
   });

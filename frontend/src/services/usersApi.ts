@@ -57,3 +57,19 @@ export async function updateUser(userId: number, input: UpdateUserInput): Promis
     body: JSON.stringify(input),
   });
 }
+
+export async function deleteUser(userId: number): Promise<void> {
+  await authRequest<{ deleted: boolean }>(`/users/${userId}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function listDeletedUsers(): Promise<PublicUser[]> {
+  return authRequest<PublicUser[]>('/users/deleted');
+}
+
+export async function restoreUser(userId: number): Promise<void> {
+  await authRequest<{ restored: boolean }>(`/users/${userId}/restore`, {
+    method: 'POST',
+  });
+}

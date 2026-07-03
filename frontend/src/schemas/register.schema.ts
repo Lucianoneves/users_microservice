@@ -10,7 +10,6 @@ export const registerFormSchema = z
     email: z.string().email('Informe um e-mail válido'),
     password: z.string().min(8, 'Senha deve ter pelo menos 8 caracteres'),
     confirmPassword: z.string(),
-    role: z.enum(['user', 'admin']).default('user'),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: 'As senhas não coincidem',

@@ -4,7 +4,6 @@ export const createUserSchema = z.object({
   username: z.string().min(3).max(50),
   email: z.string().email(),
   password: z.string().min(8),
-  role: z.enum(['user', 'admin']).default('user'),
 });
 
 export const loginUserSchema = z.object({
@@ -31,6 +30,23 @@ export const listUsersQuerySchema = z.object({
   search: z.string().max(100).optional(),
 });
 
+export const forgotPasswordSchema = z.object({
+  email: z.string().email(),
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(32),
+  password: z.string().min(8),
+});
+
+export const reactivateUserSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+});
+
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 export type LoginUserInput = z.infer<typeof loginUserSchema>;
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+export type ReactivateUserInput = z.infer<typeof reactivateUserSchema>;

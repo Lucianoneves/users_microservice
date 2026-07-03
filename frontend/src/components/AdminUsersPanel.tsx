@@ -8,7 +8,7 @@ import {
 } from '../schemas/adminUser.schema';
 import { ApiError, clearAuthSession } from '../services/authApi';
 import type { PublicUser } from '../services/authApi';
-import { listUsers, updateUser, type ListUsersFilters, type UserRole } from '../services/usersApi';
+import { listUsers, updateUser, deleteUser, listDeletedUsers, restoreUser, type ListUsersFilters, type UserRole } from '../services/usersApi';
 import { AuthCard } from './AuthCard';
 
 const ROLE_LABELS: Record<string, string> = {
@@ -27,6 +27,10 @@ export function AdminUsersPanel() {
   const [editValues, setEditValues] = useState<AdminUpdateUserInput | null>(null);
   const [editErrors, setEditErrors] = useState<AdminUpdateUserErrors>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [deletedUsers, setDeletedUsers] = useState<PublicUser[]>([]);
+  const [isLoadingDeleted, setIsLoadingDeleted] = useState(true);
+  const [restoringId, setRestoringId] = useState<number | null>(null);
 
   const loadUsers = useCallback(async (activeFilters: ListUsersFilters) => {
     setIsLoading(true);
@@ -53,9 +57,22 @@ export function AdminUsersPanel() {
     }
   }, [navigate]);
 
+  const loadDeletedUsers = useCallback(async () => {
+    setIsLoadingDeleted(true);
+    try {
+      const data = await listDeletedUsers();
+      setDeletedUsers(data);
+    } catch {
+      toast.error('Não foi possível carregar contas excluídas.');
+    } finally {
+      setIsLoadingDeleted(false);
+    }
+  }, []);
+
   useEffect(() => {
     void loadUsers(EMPTY_FILTERS);
-  }, [loadUsers]);
+    void loadDeletedUsers();
+  }, [loadUsers, loadDeletedUsers]);
 
   const handleFilterSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -67,7 +84,6 @@ export function AdminUsersPanel() {
     setEditValues({
       username: user.username,
       email: user.email,
-      role: user.role as UserRole,
     });
     setEditErrors({});
   };
@@ -116,12 +132,63 @@ export function AdminUsersPanel() {
     }
   };
 
+  const handleRestoreUser = async (user: PublicUser) => {
+    const confirmed = window.confirm(
+      `Restaurar a conta de "${user.username}"? O usuário poderá entrar novamente.`,
+    );
+    if (!confirmed) return;
+
+    setRestoringId(user.id);
+    try {
+      await restoreUser(user.id);
+      toast.success('Conta restaurada com sucesso.');
+      await loadUsers(filters);
+      await loadDeletedUsers();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.status === 409) {
+          toast.error('Não foi possível restaurar: e-mail ou usuário já em uso.');
+        } else {
+          toast.error(err.message);
+        }
+      } else {
+        toast.error('Não foi possível restaurar a conta.');
+      }
+    } finally {
+      setRestoringId(null);
+    }
+  };
+
+  const handleDeleteUser = async (user: PublicUser) => {
+    const confirmed = window.confirm(
+      `Excluir o usuário "${user.username}"? O registro será ocultado (soft delete).`,
+    );
+    if (!confirmed) return;
+
+    setDeletingId(user.id);
+    try {
+      await deleteUser(user.id);
+      toast.success('Usuário excluído com sucesso.');
+      if (editingId === user.id) handleCancelEdit();
+      await loadUsers(filters);
+      await loadDeletedUsers();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        toast.error(err.message);
+      } else {
+        toast.error('Não foi possível excluir o usuário.');
+      }
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return (
     <AuthCard
       title="Gestão de usuários"
       subtitle="Painel administrativo — RBAC"
       className="max-w-4xl"
-      footer="GET /users e PUT /users/:id — requer role admin"
+      footer="GET /users · PUT /users/:id · DELETE /users/:id · POST /users/:id/restore — admin"
     >
       <form onSubmit={handleFilterSubmit} className="mb-6 grid gap-3 sm:grid-cols-[1fr_auto_auto]">
         <input
@@ -214,26 +281,9 @@ export function AdminUsersPanel() {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      {isEditing && editValues ? (
-                        <select
-                          value={editValues.role}
-                          onChange={(e) =>
-                            setEditValues((prev) =>
-                              prev
-                                ? { ...prev, role: e.target.value as UserRole }
-                                : prev,
-                            )
-                          }
-                          className="rounded-lg border border-teal-200 px-2 py-1.5 text-sm"
-                        >
-                          <option value="user">Usuário</option>
-                          <option value="admin">Administrador</option>
-                        </select>
-                      ) : (
-                        <span className="inline-flex rounded-full bg-teal-50 px-2.5 py-0.5 text-xs font-medium text-teal-700">
-                          {ROLE_LABELS[user.role] ?? user.role}
-                        </span>
-                      )}
+                      <span className="inline-flex rounded-full bg-teal-50 px-2.5 py-0.5 text-xs font-medium text-teal-700">
+                        {ROLE_LABELS[user.role] ?? user.role}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-right">
                       {isEditing ? (
@@ -256,13 +306,23 @@ export function AdminUsersPanel() {
                           </button>
                         </div>
                       ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleStartEdit(user)}
-                          className="rounded-lg border border-teal-200 px-3 py-1.5 text-xs font-semibold text-teal-700 hover:bg-teal-50"
-                        >
-                          Editar
-                        </button>
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleStartEdit(user)}
+                            className="rounded-lg border border-teal-200 px-3 py-1.5 text-xs font-semibold text-teal-700 hover:bg-teal-50"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            type="button"
+                            disabled={deletingId === user.id}
+                            onClick={() => void handleDeleteUser(user)}
+                            className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-60"
+                          >
+                            {deletingId === user.id ? 'Excluindo...' : 'Excluir'}
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -272,6 +332,53 @@ export function AdminUsersPanel() {
           </table>
         </div>
       )}
+
+      <div className="mt-8">
+        <h2 className="mb-3 text-sm font-semibold text-slate-700">Contas excluídas (soft delete)</h2>
+        {isLoadingDeleted ? (
+          <p className="text-center text-sm text-slate-500">Carregando contas excluídas...</p>
+        ) : deletedUsers.length === 0 ? (
+          <p className="text-center text-sm text-slate-500">Nenhuma conta excluída.</p>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-slate-200">
+            <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-4 py-3 text-left font-medium text-slate-600">ID</th>
+                  <th className="px-4 py-3 text-left font-medium text-slate-600">Usuário</th>
+                  <th className="px-4 py-3 text-left font-medium text-slate-600">E-mail</th>
+                  <th className="px-4 py-3 text-left font-medium text-slate-600">Perfil</th>
+                  <th className="px-4 py-3 text-right font-medium text-slate-600">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {deletedUsers.map((user) => (
+                  <tr key={user.id} className="bg-red-50/40">
+                    <td className="px-4 py-3 text-slate-700">{user.id}</td>
+                    <td className="px-4 py-3 text-slate-800">{user.username}</td>
+                    <td className="px-4 py-3 text-slate-800">{user.email}</td>
+                    <td className="px-4 py-3">
+                      <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+                        {ROLE_LABELS[user.role] ?? user.role}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        type="button"
+                        disabled={restoringId === user.id}
+                        onClick={() => void handleRestoreUser(user)}
+                        className="rounded-lg border border-teal-200 px-3 py-1.5 text-xs font-semibold text-teal-700 hover:bg-teal-50 disabled:opacity-60"
+                      >
+                        {restoringId === user.id ? 'Restaurando...' : 'Restaurar'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       <p className="mt-6 text-center text-xs text-slate-500">
         <Link to="/perfil" className="font-medium text-teal-600 hover:underline">

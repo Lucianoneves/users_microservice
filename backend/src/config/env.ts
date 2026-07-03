@@ -7,6 +7,8 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default('1h'),
   DATABASE_URL: z.string().url().optional(),
   REDIS_URL: z.string().url().optional(),
+  FRONTEND_URL: z.string().url().default('http://localhost:5173'),
+  PASSWORD_RESET_EXPIRES_MINUTES: z.coerce.number().int().positive().default(60),
 });
 
 export type Env = z.infer<typeof envSchema>;

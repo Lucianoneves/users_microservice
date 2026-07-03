@@ -9,6 +9,7 @@ import {
   getAuthUserId,
   type PublicUser,
 } from '../services/authApi';
+import { deleteUser } from '../services/usersApi';
 import { AuthCard } from './AuthCard';
 
 const ROLE_LABELS: Record<string, string> = {
@@ -20,8 +21,9 @@ export function PerfilForm() {
   const navigate = useNavigate();
   const [user, setUser] = useState<PublicUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  useEffect(() => {
+  useEffect(() => { // Carrega o perfil do usuário logado
     const userId = getAuthUserId();
     if (!userId) {
       navigate('/login', { replace: true });
@@ -31,7 +33,7 @@ export function PerfilForm() {
     const profileUserId = userId;
     let cancelled = false;
 
-    async function loadProfile(): Promise<void> {
+    async function loadProfile(): Promise<void> { // Carrega o perfil do usuário logado
       try {
         const profile = await fetchUserProfile(profileUserId);
         if (!cancelled) setUser(profile);
@@ -55,10 +57,35 @@ export function PerfilForm() {
     };
   }, [navigate]);
 
-  const handleLogout = () => {
+  const handleLogout = () => { // Sai da conta
     clearAuthSession();
     toast.info('Você saiu da conta.');
     navigate('/login', { replace: true });
+  };
+
+  const handleDeleteAccount = async () => { // Exclui a conta
+    if (!user) return;
+
+    const confirmed = window.confirm(
+      'Excluir sua conta? Seus dados serão ocultados (soft delete) e você não poderá mais entrar.',
+    );
+    if (!confirmed) return;
+
+    setIsDeleting(true);
+    try {
+      await deleteUser(user.id);
+      clearAuthSession();
+      toast.success('Conta excluída com sucesso.');
+      navigate('/login', { replace: true });
+    } catch (err) {
+      if (err instanceof ApiError) {
+        toast.error(err.message);
+      } else {
+        toast.error('Não foi possível excluir a conta.');
+      }
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   if (isLoading) {
@@ -124,13 +151,22 @@ export function PerfilForm() {
         <button
           type="button"
           onClick={handleLogout}
-          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:ring-offset-2"
+          disabled={isDeleting}
+          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:ring-offset-2 disabled:opacity-60"
         >
           Sair
         </button>
+        <button
+          type="button"
+          onClick={() => void handleDeleteAccount()}
+          disabled={isDeleting}
+          className="w-full rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 shadow-sm transition hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-300 focus:ring-offset-2 disabled:opacity-60"
+        >
+          {isDeleting ? 'Excluindo conta...' : 'Excluir minha conta'}
+        </button>
         <p className="text-center text-xs text-slate-500">
-          <Link to="/cadastro" className="font-medium text-teal-600 hover:underline">
-            Criar outra conta
+          <Link to="/reativar" className="font-medium text-teal-600 hover:underline">
+            Reativar conta excluída
           </Link>
         </p>
       </div>

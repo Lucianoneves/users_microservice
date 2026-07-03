@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { QueryFailedError } from 'typeorm';
+import { ConflictError, ForbiddenError } from '../lib/errors';
 import { logger } from '../lib/logger';
 
 export function errorHandler(
@@ -14,6 +15,16 @@ export function errorHandler(
       error: 'Validation failed',
       details: err.flatten().fieldErrors,
     });
+    return;
+  }
+
+  if (err instanceof ConflictError) {
+    res.status(409).json({ error: err.message });
+    return;
+  }
+
+  if (err instanceof ForbiddenError) {
+    res.status(403).json({ error: err.message });
     return;
   }
 

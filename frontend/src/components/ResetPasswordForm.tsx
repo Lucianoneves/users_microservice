@@ -1,29 +1,30 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
-  registerFormSchema,
-  type RegisterFormErrors,
-  type RegisterFormInput,
-} from '../schemas/register.schema';
-import { ApiError, registerUser, saveAuthSession } from '../services/authApi';
+  resetPasswordFormSchema,
+  type ResetPasswordFormErrors,
+  type ResetPasswordFormInput,
+} from '../schemas/resetPassword.schema';
+import { ApiError, resetPassword } from '../services/authApi';
 import { AuthCard } from './AuthCard';
 import { FormField } from './FormField';
 
-const initialValues: RegisterFormInput = {
-  username: '',
-  email: '',
+const initialValues: ResetPasswordFormInput = {
   password: '',
   confirmPassword: '',
 };
 
-export function RegisterForm() {
+export function ResetPasswordForm() {
   const navigate = useNavigate();
-  const [values, setValues] = useState<RegisterFormInput>(initialValues);
-  const [errors, setErrors] = useState<RegisterFormErrors>({});
+  const [searchParams] = useSearchParams();
+  const token = searchParams.get('token') ?? '';
+
+  const [values, setValues] = useState<ResetPasswordFormInput>(initialValues);
+  const [errors, setErrors] = useState<ResetPasswordFormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleChange = (field: keyof RegisterFormInput, value: string) => {
+  const handleChange = (field: keyof ResetPasswordFormInput, value: string) => {
     setValues((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
@@ -33,11 +34,16 @@ export function RegisterForm() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    const result = registerFormSchema.safeParse(values);
+    if (!token) {
+      toast.error('Link inválido. Solicite uma nova recuperação de senha.');
+      return;
+    }
+
+    const result = resetPasswordFormSchema.safeParse(values);
     if (!result.success) {
-      const fieldErrors: RegisterFormErrors = {};
+      const fieldErrors: ResetPasswordFormErrors = {};
       for (const issue of result.error.issues) {
-        const field = issue.path[0] as keyof RegisterFormInput;
+        const field = issue.path[0] as keyof ResetPasswordFormInput;
         if (!fieldErrors[field]) {
           fieldErrors[field] = issue.message;
         }
@@ -51,16 +57,13 @@ export function RegisterForm() {
     setIsSubmitting(true);
 
     try {
-      const { username, email, password } = result.data;
-      const auth = await registerUser({ username, email, password });
-      saveAuthSession(auth);
-      toast.success(`Conta criada! ID: ${auth.id}`);
-      setValues(initialValues);
-      navigate('/perfil');
+      await resetPassword({ token, password: result.data.password });
+      toast.success('Senha redefinida com sucesso!');
+      navigate('/login');
     } catch (err) {
       if (err instanceof ApiError) {
-        if (err.status === 409) {
-          toast.error('E-mail ou nome de usuário já cadastrado.');
+        if (err.status === 400) {
+          toast.error('Link expirado ou inválido. Solicite uma nova recuperação.');
         } else {
           toast.error(err.message);
         }
@@ -72,37 +75,34 @@ export function RegisterForm() {
     }
   };
 
+  if (!token) {
+    return (
+      <AuthCard title="Redefinir senha" subtitle="ACME Corp — Users Service">
+        <div className="space-y-5 text-center">
+          <p className="text-sm text-slate-600">
+            Este link é inválido ou está incompleto.
+          </p>
+          <Link
+            to="/recuperar-senha"
+            className="inline-block text-sm font-medium text-teal-600 transition hover:text-teal-700 hover:underline"
+          >
+            Solicitar nova recuperação
+          </Link>
+        </div>
+      </AuthCard>
+    );
+  }
+
   return (
     <AuthCard
-      title="Criar conta"
+      title="Nova senha"
       subtitle="ACME Corp — Users Service"
-      footer="Cadastro integrado com a API em http://localhost:3000"
+      footer="Defina uma senha com pelo menos 8 caracteres."
     >
       <form onSubmit={handleSubmit} className="space-y-5" noValidate>
         <FormField
-          id="username"
-          label="Nome de usuário"
-          value={values.username}
-          error={errors.username}
-          placeholder="ex: maria_silva"
-          autoComplete="username"
-          onChange={(value) => handleChange('username', value)}
-        />
-
-        <FormField
-          id="email"
-          label="E-mail"
-          type="email"
-          value={values.email}
-          error={errors.email}
-          placeholder="voce@empresa.com"
-          autoComplete="email"
-          onChange={(value) => handleChange('email', value)}
-        />
-
-        <FormField
           id="password"
-          label="Senha"
+          label="Nova senha"
           type="password"
           value={values.password}
           error={errors.password}
@@ -113,7 +113,7 @@ export function RegisterForm() {
 
         <FormField
           id="confirmPassword"
-          label="Confirmar senha"
+          label="Confirmar nova senha"
           type="password"
           value={values.confirmPassword}
           error={errors.confirmPassword}
@@ -127,27 +127,15 @@ export function RegisterForm() {
           disabled={isSubmitting}
           className="w-full rounded-xl bg-teal-600 px-4 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:ring-offset-2 active:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isSubmitting ? 'Cadastrando...' : 'Cadastrar'}
+          {isSubmitting ? 'Salvando...' : 'Redefinir senha'}
         </button>
 
         <p className="text-center text-xs text-slate-500">
-          Já tem uma conta excluída?{' '}
-          <Link
-            to="/reativar"
-            className="font-medium text-teal-600 transition hover:text-teal-700 hover:underline"
-          >
-            Reativar conta
-          </Link>
-          {' '}ou cadastre-se novamente com o mesmo e-mail.
-        </p>
-
-        <p className="text-center text-xs text-slate-500">
-          Já tem uma conta?{' '}
           <Link
             to="/login"
             className="font-medium text-teal-600 transition hover:text-teal-700 hover:underline"
           >
-            Entrar
+            Voltar ao login
           </Link>
         </p>
       </form>
